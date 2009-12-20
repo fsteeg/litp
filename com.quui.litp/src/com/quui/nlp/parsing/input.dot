@@ -1,0 +1,46 @@
+digraph{
+	
+	node[shape=none]
+	edge[arrowhead=none]
+
+	s[label="S"]
+	np1[label="NP"]
+	v[label="V"]
+	vp[label="VP"]
+	np2[label="NP"]
+	det[label="Det"]
+	n[label="N"]
+
+	det2[label="Det"]
+	n2[label="N"]
+
+	an[label="the" style=dashed]
+	agent[label="agent" style=dashed]
+	likes[label="likes" style=dashed]
+	martinis[label="martinis" style=dashed]
+	dry[style=dashed]
+
+
+
+	s->np1
+	s->vp
+	vp->v
+	vp->np2
+	v->likes[style=dashed]
+
+	subgraph np1{
+	label="NP"
+	np1 -> det
+	np1 -> n
+
+	det->an[style=dashed]
+	n->agent[style=dashed]
+	};
+	subgraph np2{
+	label="NP"
+	np2->det2
+	det2->dry[style=dashed]
+	np2->n2
+	n2->martinis[style=dashed]
+	};
+}

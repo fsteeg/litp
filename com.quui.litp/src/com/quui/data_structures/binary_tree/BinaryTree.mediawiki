@@ -1,0 +1,189 @@
+=Overview=
+
+A simple [http://en.wikipedia.org/wiki/Binary_search_tree binary search tree], implemented as an object-oriented, recursive data structure in Java, for objects that extend Comparable. Note that Java already provides efficient tree-based data structures, e.g. TreeSet.
+
+=Implementation=
+
+A node in a binary tree has three attributes: the left and the right child nodes and a value. The tree has one root node. This is the structure of the binary tree, as represented in the UML class diagram below.
+
+[[Image:Binary-tree-class-diagram.png|UML class diagram for the binary search tree implementation]]
+
+==Construction==
+
+When adding an element to the tree, if the element is in the tree already, it is not added. The proper place to insert at is searched recursivley by calling the insert method.
+
+<codeblock language=java>
+<<add>>=
+
+public void add(Comparable element) {
+    if (this.root == null && element != null) {
+        this.root = new Node(element);
+        this.size++;
+    } else if (element != null) {
+        this.root = insert(this.root, element);
+    }
+}
+</codeblock>
+
+The recursive insertion method takes two parameters: the node to search from and the element to add. It returns the node including the inserted new element. When the value is already in the tree, nothing is done. For a more sophisticated tree, we could add the new element, count frequencies, etc.
+
+<codeblock language=java>
+<<equal>>=
+
+if (compare == 0) {
+    return result;
+}
+</codeblock>
+* In case the new value needs to be inserted in the left subtree:
+<codeblock language=java>
+<<left>>=
+
+if (compare > 0) {
+    if (result.left != null) {
+        result.left = insert(result.left, value);
+    } else {
+        result.left = new Node(value);
+        this.size++;
+    }
+}
+</codeblock>
+* In case the new value needs to be inserted in the right subtree:
+<codeblock language=java>
+<<right>>=
+
+else if (compare < 0) {
+    if (result.right != null) {
+        result.right = insert(result.right, value);
+    } else {
+        result.right = new Node(value);
+        this.size++;
+    }
+}
+</codeblock>
+
+* Search for a value in the tree, return the element if found or null if the element is not in the tree:
+
+<codeblock language=java>
+<<get>>=
+
+public Comparable get(Comparable key) {
+    if (this.root == null)
+        return null;
+    else
+        return find(this.root, key);
+}
+</codeblock>
+
+* Recursively search a value in the tree, starting from a given node, continuing either in the left or in the right subtree. Return the element, if found:
+<codeblock language=java>
+<<find>>=
+
+private Comparable find(Node node, Comparable searchValue) {
+    int compareResult;
+    Comparable result = null;
+    if ((compareResult = node.value.compareTo(searchValue)) == 0) {
+        return node.value;
+    } else if (compareResult > 0) {
+        if (node.left != null)
+            return find(node.left, searchValue);
+    } else {
+        if (node.right != null)
+            return find(node.right, searchValue);
+    }
+    return result;
+}
+</codeblock>
+==Traversal==
+* Create an array from the tree and return it:
+<codeblock language=java>
+<<array>>=
+
+public Comparable[] toArray() {
+    i = 0;
+    Comparable[] result = new Comparable[this.size];
+    if (this.root != null)
+        treeToArray(this.root, result);
+    return result;
+}
+</codeblock>
+
+* Recursive preorder traversal of the tree, saving the values to the array:
+<codeblock language=java>
+<<traversal>>=
+
+private void treeToArray(Node node, Comparable[] goal) {
+    if (node.left != null)
+        treeToArray(node.left, goal);
+    goal[i] = node.value;
+    if (i == goal.length - 1)
+        return;
+    i++;
+    if (node.right != null)
+        treeToArray(node.right, goal);
+    return;
+}
+</codeblock>
+
+=Usage=
+
+* Sample usage: we create a tree and add a few strings. We check if it's sorted and if searching works (uses JUnit 4, requiring Java 5):
+
+<codeblock language=java>
+<<usage>>=
+
+BinaryTree tree = new BinaryTree();
+tree.add("Hanno");
+tree.add("Zacharias");
+tree.add("Berhard");
+assertEquals(new Comparable[] { "Berhard", "Hanno", "Zacharias" }, tree.toArray());
+assertEquals(null, tree.get("Otto"));
+assertEquals("Hanno", tree.get("Hanno"));
+</codeblock>
+
+* The complete program:
+<codeblock language=java>
+<<BinaryTree.java>>=
+import static org.junit.Assert.*;
+import org.junit.Test;
+
+class Node {
+	public Node left;
+	public Node right;
+	public Comparable value;
+	Node(Comparable value) {
+		this.value = value;
+	}
+	Node(Node node) {
+		this.left = node.left;
+		this.right = node.right;
+		this.value = node.value;
+	}
+}
+    
+public class BinaryTree {
+	Node root;
+	int size = 0;
+	int i;
+	@Test
+	public void testTree() {
+		<<usage>>
+	}
+	<<add>>
+	private Node insert(Node node, Comparable value) {
+		Node result = new Node(node);
+		int compare = result.value.compareTo(value);
+		<<equal>>
+		<<left>>
+		<<right>>
+		return result;
+	}
+	<<get>>
+	<<find>>
+	<<array>>
+	<<traversal>>
+}
+</codeblock>
+
+[[Category:Binary search tree|Java]]
+[[Category:Programming language:Java]]
+[[Category:Environment:Portable]]

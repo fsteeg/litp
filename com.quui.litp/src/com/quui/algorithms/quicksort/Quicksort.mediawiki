@@ -1,0 +1,173 @@
+=Overview=
+
+An implementation of the [http://en.wikipedia.org/wiki/Quicksort Quicksort] algorithm in Java. The array to be sorted can be of any type that extends Comparable, making it usable with Java's referencial numeric types like Float, Double, Integer, etc. as well as e.g. with Strings. The implementation therefore requires Java 5. As common for Quicksort implementations, the algorithm is implemented recursively using a [http://en.wikipedia.org/wiki/Divide_and_conquer_algorithm divide-and-conquer] strategy. The basic idea is to build two partitions which are sorted at all times, until these two partitions together are the complete array. The array is therefore conquered from the back and from the front, dividing the array into two partitions, one starting from the beginning and one from the end. The elements to be swapped to ensure sorted partitions are searched in do-while loops, the elements in the array are sorted in ascending order.
+
+=Implementation=
+
+* This implementation sorts a given array of comparable elements in ascending order, as exemplified by the following test.
+<codeblock labguage=java>
+<<test_integer_body>>=
+
+Integer[] array = new Integer[] { 5, 3, 4, 2, 1 };
+quicksort(array);
+Integer[] correct = new Integer[] { 1, 2, 3, 4, 5 };
+assertEquals(correct, array);
+</codeblock>
+
+* The method we just called uses Java generics to allow all arrays of types that extend Comparable. This is formalised by describing a type that extends Comparable (T extends Comaprable) which itself is a supertype of T (? super T). The latter lower bounded wildcard allows implementing Comparable with a parameter (class Bar implements Comparable<Object>), since it ensures that the type T can not be compared to exactly T only, but to any instance of the supertype.
+<codeblock language = java>
+<<start_method>>=
+
+static <T extends Comparable<? super T>> void quicksort(T[] array)
+</codeblock>
+
+* Start conquering the array from the beginning (0) and from the end (array.length - 1), thereby dividing it into two partitions.
+<codeblock language=java>
+<<start>>=
+
+quicksort(array, 0, array.length - 1);
+</codeblock>
+* The recursive method we just called, using Java generics to allow all arrays of types that extend Comparable, as described above.
+<codeblock language=java>
+<<recursive_method>>=
+
+static <T extends Comparable<? super T>> void quicksort(T[] array, int left0, int right0)
+</codeblock>
+* First, let's initialize the local variables we use in that method.
+<codeblock language=java>
+<<initialize>>=
+
+int left, right;
+T pivot, temp;
+left = left0;
+right = right0 + 1;
+</codeblock>
+* This implementation uses the first element in the array as the pivot element, which results in Quicksort's worst case runtime behaviour of <math>O(n^2)</math> for already sorted arrays.
+<codeblock language=java>
+<<set_pivot>>=
+
+pivot = array[left0];
+</codeblock>
+* Search an element > current in the partition from left to right.
+<codeblock language=java>
+<<search_from_left>>=
+
+do left++; while (left < array.length && array[left].compareTo(pivot) < 0);
+</codeblock>
+* Search an element < current in the partition from right to left.
+<codeblock language=java>
+<<search_from_right>>=
+
+do right--; while (array[right].compareTo(pivot) > 0);
+</codeblock>
+* At this point, if there is anything to be sorted left, we have found two values, which, if swapped would ensure that the  two partitions are sorted again.
+<codeblock language=java>
+<<swap>>=
+
+if (left < right) {
+	temp = array[left];
+	array[left] = array[right];
+	array[right] = temp;
+}
+</codeblock>
+
+* Process the remaining interval step-by-step. When there is no longer an interval between the already sorted partitions, we are done here.
+<codeblock language=java>
+<<process>>=
+
+do {
+	<<search_from_left>>
+	<<search_from_right>>
+	<<swap>>
+}
+while (left <= right);
+</codeblock>
+
+* Copy the smallest value to the beginning.
+<codeblock language=java>
+<<copy_smallest>>=
+
+temp = array[left0];
+array[left0] = array[right];
+array[right] = temp;
+</codeblock>
+
+* If the partition conquered from left to right has a remaining, unsorted sublist, recursively sort that sublist of the left partition. Then, do the same for the right partition, if it has a ramaining, unsorted sublist.
+<codeblock language=java>
+<<recursion>>=
+
+if (left0 < right) quicksort(array, left0, right);
+if (left < right0) quicksort(array, left, right0);
+</codeblock>
+
+=Unit Tests=
+
+* To test the method, we first import the JUnit 4 test annotation and the static assertEquals method.
+<codeblock language=java>
+<<import>>=
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+</codeblock>
+
+* Test the sorting with Java's Integer type.
+
+<codeblock language=java>
+<<test_integer>>=
+
+@Test
+public void integerSorting() {
+	<<test_integer_body>>
+}
+</codeblock>
+
+* Test the sorting with Java's Float type.
+<codeblock language=java>
+<<test_float>>=
+
+@Test
+public void floatSorting() {
+	Float[] array = new Float[] { 1.8F, 3.6F, 4F, 5F, 2F };
+	quicksort(array);
+	Float[] correct = new Float[] { 1.8F, 2F, 3.6F, 4F, 5F };
+	assertEquals(correct, array);
+}
+</codeblock>
+* Test the sorting with Java's String type.
+<codeblock language=java>
+<<test_string>>=
+
+@Test
+public void stringSorting() {
+    String[] array = new String[] {"Batman", "Spiderman", "Anthony", "Zoolander"};
+    quicksort(array);
+    String[] correct = new String[] {"Anthony", "Batman",  "Spiderman",  "Zoolander"};
+    assertEquals(correct, array);
+}
+</codeblock>
+=Complete Class=
+* This results in the following class.
+<codeblock language=java>
+<<Quicksort.java>>=
+
+<<import>>
+public class Quicksort {
+	<<start_method>> {
+		<<start>>
+	}
+	<<recursive_method>> {
+		<<initialize>>
+		<<set_pivot>>
+		<<process>> 
+		<<copy_smallest>>
+		<<recursion>>
+	}
+	<<test_integer>>
+	<<test_float>>
+	<<test_string>>
+}
+</codeblock>
+
+[[Category:Quicksort|Java]]
+[[Category:Programming_language:Java]]
+[[Category:Environment:Portable]]

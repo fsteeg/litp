@@ -1,0 +1,14 @@
+digraph hierarchy {
+  size="5,5"
+  node[shape=record,style=filled,fillcolor=gray95 height=1.3 width=1.3]
+  edge[dir=back, arrowtail=empty]
+  
+  n[label = "{Node|+ left : Node\n+ right : Node|}"]
+  t[label = "{Tree|+ root : Node|}"]
+ 
+ 
+ 
+ t->n[arrowtail=ediamond arrowhead=none constraint=false]
+ n->n[arrowhead=ediamond arrowtail=none]
+
+}

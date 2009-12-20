@@ -1,0 +1,357 @@
+A simple, intuitive implementation of a [http://en.wikipedia.org/wiki/Suffix_tree suffix tree] as an object-oriented, recursive data structure in Java (requires version 5). The suffix tree is constructed by first constructing a simple suffix trie, which is then transformed into a suffix tree, as described in Böckenhauer & Bongartz (2003). The implementation has a runtime and memory complexity of <math>O(n^2)</math>. This implementation is of educational and illustrative purpose, not for high-volume string processing, which is possible with suffix trees, if constructed differently. For construction of suffix trees with linear runtime and memory complexity consider the algorithm by [[Suffix tree (Java, Ukkonen)|Ukkonen]].
+
+=Usage=
+
+Sample usage for the suffix tree: Create a compact suffix tree for an input text and export it as a dot string, using a few attributes to style the generated tree. The resulting text can be rendered as an image with [http://www.graphviz.org GraphViz].
+
+<codeblock language=java>
+<<sample_usage>>=
+
+CompactSuffixTree tree = new CompactSuffixTree(new SimpleSuffixTree("bananas"));
+String properties = "rankdir=LR; node[shape=box fillcolor=gray95 style=filled]\n";
+System.out.println("digraph {\n" + properties + tree.root + "}");
+</codeblock>
+
+[[Image:Suffix-tree-rendered-output.png|500px|Sample output, rendered with GraphViz: a suffix tree for "bananas"]]
+
+=Implementation=
+
+The implementation consists of five classes: an abstract suffix tree class, two concrete suffix tree classes (one simple and one compact) and classes for nodes (which recursively contain a collection of themselves, the immediate children) and edges.
+
+[[Image:Suffix-tree-class-diagram.png|500px|UML class diagram for the suffix tree implementation]]
+==Classes==
+===Abstract===
+
+The abstract superclass for the simple suffix trie and the compact suffix tree. It has a root node, which recursively contains children nodes. The constructor for the AbstractSuffixTree has one param, text: the text to be represented by this tree. A terminating "$" is appended if not already present.
+
+<codeblock language = java>
+<<constructor_abstract>>=
+
+AbstractSuffixTree(String text) {
+    if ((text.length() > 0 && text.charAt(text.length() - 1) == '$')) {
+        this.text = text;
+    } else {
+        this.text = text + "$";
+    }
+}
+</codeblock>
+
+The attributes of the AbstractSuffixTree: the text represented by this tree, the root node of this tree and the size of the input alphabet.
+
+<codeblock language=java>
+<<attributes_abstract>>=
+    
+String text = null;
+SuffixTreeNode root = null;
+int inputAlphabetSize = -1;
+</codeblock>
+
+===Simple===
+
+Both concrete trees represent the same text, but the CompactSuffixTree has compact nodes, but no compact labels, for illustrative reasons. Actually, a suffix tree should contain indices as labels. As this is a non-optimized implementation for illustrative and educational purpose, the edges contain full labels. A simple suffix trie ist constructed with one param, text: the text to be represented by the suffix tree, a terminating "$" is appended if not already present.
+    
+<codeblock language=java>
+<<constructor_simple>>=
+   
+public SimpleSuffixTree(String text) {
+	super(text);
+	constructTree();
+}
+</codeblock>
+
+Create the root node and insert all suffixes into this tree, counting the paths.
+
+<codeblock language=java>
+<<construct_tree>>=
+
+private void constructTree() {
+    super.root = new SuffixTreeNode();
+    int pathCounter = 0;
+    char[] s = super.text.toCharArray();
+    for (int i = 0; i < s.length; i++) {
+        List<String> suffixList = new ArrayList<String>();
+        for (int k = i; k < s.length; k++) {
+            suffixList.add(s[k] + "");
+        }
+        pathCounter++;
+        super.root.addSuffix(suffixList, pathCounter);
+    }
+}
+</codeblock>
+
+===Node===
+
+The addSuffix method of the node takes two parameters:
+
+* suffix: The suffix to insert into the suffix tree, will be inserted  behind the maximum prefix of the suffix found in the tree.
+* pathIndex:  The path index for labeling the leaf at the end of the path of the suffix added.
+
+Adding a suffix consists of two steps:
+
+* Recursivley find the node to insert at.
+* Insert new nodes for the suffix to insert below the node found.
+   
+<codeblock language=java>
+<<add_suffix>>=
+
+public void addSuffix(List<String> suffix, int pathIndex) {
+    SuffixTreeNode insertAt = this;
+    insertAt = search(this, suffix);
+    insert(insertAt, suffix, pathIndex);
+}
+</codeblock>
+
+The recursive search method takes two parameters (see below). It returns the node under which to enter the suffix, that is the node in which the path to the maximum prefix of the new suffix ends. When entering the method, the suffix size should never be 0, as a terminating "$" is always appended to the text, but if that wasn't the case, and the text would be something like "dacdac", and right where the Exception is thrown we would return the startNode, we would have an invalid suffix tree, where one path would end in an inner node.
+
+* startNode: The node in which to start the search.
+* suffix: The suffix that is intended to be inserted into the tree.
+
+<codeblock language=java>
+<<search>>=
+   
+private SuffixTreeNode search(SuffixTreeNode startNode, List<String> suffix) {
+    if (suffix.size() == 0) {
+        throw new IllegalArgumentException(
+                "Empty suffix. Probably no valid simple suffix tree exists for the input.");
+    }
+    Collection<SuffixTreeNode> children = startNode.children;
+    for (SuffixTreeNode child : children) {
+        if (child.incomingEdge.label.equals(suffix.get(0))) {
+            suffix.remove(0);
+            if (suffix.isEmpty()) {
+                return child;
+            }
+            return search(child, suffix);
+        }
+    }
+    return startNode;
+}
+</codeblock>
+The insertion method takes three arguments:
+
+* insertAt: The node into which the suffix should be entered.
+* suffix: The suffix to enter into the node. Not all will be used, skips the maximum prefix that has already been found. For every remaining character, a node is added into the tree.
+* pathIndex: the path index (for labels of leafs, which isnt implemented for illustrative purpose, but is common for suffix trees).
+
+<codeblock language=java>
+<<insert>>=
+
+private void insert(SuffixTreeNode insertAt, List<String> suffix,
+        int pathIndex) {
+    for (int j = 0; j < suffix.size(); j++) {
+        SuffixTreeNode child = new SuffixTreeNode(insertAt, suffix.get(j)
+                + "", insertAt.nodeDepth + 1, pathIndex, id);
+        insertAt.children.add(child);
+        insertAt = child;
+    }
+}
+</codeblock>
+
+The attributes for a node:
+    
+* The incoming edge of this node. Every node in a tree has one incoming edge, except for the root, which has none.
+* The depth of this node, that is, how many edges are on a path from the root node to this node (not the string depth).
+* The label of this node, for leafs only.
+* The collection of nodes, the immediate children of this node.
+* The parent node of this node.
+* The string depth of this node.
+* Attributes for saving the tree as dot.
+
+<codeblock language=java>
+<<attributes_node>>=
+
+SuffixTreeEdge incomingEdge = null;
+int nodeDepth = -1;
+int label = -1;
+Collection<SuffixTreeNode> children = null;
+SuffixTreeNode parent = null;
+int stringDepth;
+int id = 0;
+public static int c;
+</codeblock>
+
+Constructor for a node with a parent, that is, for any node except the root node. The constructor takes five arguments (see below). For creating the root node, another constructor without parameters is used.
+     
+* parent: The parent node of this node.
+* incomingLabel: The label for the incoming edge of this node.
+* depth: The node depth to be assigned to this node.
+* label: The label for this node (Nodes are currently labeled with leaf numbers).
+* id: An id for the node. The nodes are numbered depth-first when exported as dot.
+
+<codeblock language=java>
+<<constructor_node>>=
+    
+public SuffixTreeNode(SuffixTreeNode parent, String incomingLabel,
+        int depth, int label, int id) {
+    children = new ArrayList<SuffixTreeNode>();
+    incomingEdge = new SuffixTreeEdge(incomingLabel, label);
+    this.nodeDepth = depth;
+    this.label = label;
+    this.parent = parent;
+    this.stringDepth = parent.stringDepth + incomingLabel.length();
+    this.id = id;
+}
+public SuffixTreeNode() {
+    children = new ArrayList<SuffixTreeNode>();
+    nodeDepth = 0;
+    this.label = 0;
+}
+</codeblock>
+
+We override toString() to recursively exports the node and all children to dot, using indentation to visualize node depth in the text file. Returns the tree as the body of a graph description in the dot language (www.graphviz.org, see sample usage above).
+
+<codeblock language=java>
+<<dot_export>>=
+
+public String toString() {
+    StringBuilder result = new StringBuilder();
+    String incomingLabel = this.isRoot() ? "" : this.incomingEdge.label;
+    for (int i = 1; i <= this.nodeDepth; i++)
+        result.append("\t");
+    if (this.isRoot()) {
+        c = 1;
+        this.id = 1;
+    } else {
+        this.id = c;
+        result.append(this.parent.id + " -> ");
+        result.append(this.id + "[label=\"" + incomingLabel + "\"];\n");
+    }
+    for (SuffixTreeNode child : children) {
+        child.parent.id = this.id;
+        c++;
+        child.id = c;
+        result.append(child.toString());
+    }
+    return result.toString();
+}
+
+</codeblock>
+
+Two helper methods, one that returns true if this node is the root node (the root node has no parent) and one that returns true if this node is a leaf (a leaf node has no children).
+    
+<codeblock language=java>
+<<helper_methods>>=
+
+public boolean isRoot() {
+    return this.parent == null;
+}
+public boolean isLeaf() {
+    return children.size() == 0;
+}
+</codeblock>
+
+===Compact===
+The constructor of the compact suffix tree takes one parameter, simpleSuffixTree: the simple suffix tree that should be made compact.
+
+<codeblock language=java>
+<<constructor_compact>>=
+
+public CompactSuffixTree(SimpleSuffixTree simpleSuffixTree) {
+    super(simpleSuffixTree.text);
+    super.root = compactNodes(simpleSuffixTree.root, 0);
+}
+</codeblock>
+After we are done constructing the simple suffix tree or suffix trie, we make it compact by removing inner nodes with exactly one child node, which makes the structure a suffix tree. The method takes two parameters and returns the root node of the compact suffix tree. The method takes two parameters:
+
+* node: The root node of the simple suffix tree to make compact.
+* nodeDepth: The current node depth.
+
+The method consists of the following steps:
+
+* Adjust the node depth while making the tree compact.
+* Remove all inner nodes with exactly one child node.
+** Set the new longer label.
+** Set the new string depth.
+** Skip the grandchild by setting the grandchild's children as the child's children.
+* For the others, continue.
+
+<codeblock language=java>
+<<compact_nodes>>=
+
+private SuffixTreeNode compactNodes(SuffixTreeNode node, int nodeDepth) {
+    node.nodeDepth = nodeDepth;
+    for (SuffixTreeNode child : node.children) {
+        while (child.children.size() == 1) {
+            SuffixTreeNode grandchild = child.children.iterator().next();
+            child.incomingEdge.label = child.incomingEdge.label + ", "
+                    + grandchild.incomingEdge.label;
+            child.stringDepth = child.stringDepth
+                    + grandchild.incomingEdge.label.length();
+            child.children = grandchild.children;
+        }
+        child = compactNodes(child, nodeDepth + 1);
+    }
+    return node;
+}
+</codeblock>
+
+===Edge===
+
+Attributes of the edge class: The label of this edge and the index where the branch this label belongs to starts in the text represented by the tree. That is, the number that the leaf at the end of this branch will be labeled with (the index in the immediate children of the tree's root node). The constructor of the edge class takes two parameters:
+
+* label: The label for this edge.
+* branchIndex: The index where the branch this label belongs to starts in the text represented by the tree (not actually used, see above).
+
+<codeblock language=java>
+<<edge>>=
+
+String label = null;
+@SuppressWarnings("unused")
+private int branchIndex = -1;
+
+public SuffixTreeEdge(String label, int branchIndex) {
+    this.label = label;
+    this.branchIndex = branchIndex;
+}
+</codeblock>
+
+==Program==
+
+To complete the program, we need to import a few classes and finally put it all together, by adding the sample usage and the five classes:
+
+<codeblock language=java>
+<<SuffixTree.java>>=
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import org.junit.Test;
+
+public class SuffixTree {
+	@Test
+	public void sampleUsage() {
+		<<sample_usage>>
+	}
+}
+abstract class AbstractSuffixTree {
+	<<attributes_abstract>>
+	<<constructor_abstract>>
+}
+class SimpleSuffixTree extends AbstractSuffixTree {
+	<<constructor_simple>>
+	<<construct_tree>>
+}
+class CompactSuffixTree extends AbstractSuffixTree {
+	<<constructor_compact>>
+	<<compact_nodes>>
+}
+class SuffixTreeNode {
+	<<attributes_node>>
+	<<constructor_node>>
+	<<add_suffix>>
+	<<search>>
+	<<insert>>
+	<<dot_export>>
+	<<helper_methods>>
+}
+class SuffixTreeEdge {
+	<<edge>>
+}
+</codeblock>
+
+=References=
+* Böckenhauer, Hans-Joachim & Dirk Bongartz (2003), ''Algorithmische Grundlagen der Bioinformatik'', Teubner.
+
+[[Category:Suffix tree]]
+[[Category:Programming_language:Java]]
+[[Category:Environment:Portable]]

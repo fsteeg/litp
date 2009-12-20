@@ -1,0 +1,141 @@
+=Introduction=
+
+An exemplary generic, visitable [http://en.wikipedia.org/wiki/Tree_%28data_structure%29 tree], implemented in Java 5. The tree uses [http://en.wikipedia.org/wiki/Java_generics Java Generics] and can therefore contain arbitrary objects. Methods for accessing the tree are implemented using the [http://en.wikipedia.org/wiki/Visitor_pattern Visitor Pattern], so the methods can be defined without changing the actual tree class, improving encapsulation and reusability. This implementation is based on the binary tree described in Naftalin and Wadler (2006).
+
+=Implementation=
+
+A visitor visits the actual elements of type E as well as recursive branches, and returns elements of type R. The Tree class defines an abstract method, which takes a visitor as an argument and returns an object of the desired return value:
+
+<codeblock language=java>
+<<visitor>>=
+public abstract <R> R visit(Visitor<E, R> v);
+
+public interface Visitor<E, R> {
+	public R leaf(E elt);
+	public R branch(List<R> children);
+}
+</codeblock>
+
+The tree supplies a static [http://en.wikipedia.org/wiki/Facory_method_pattern factory method] for creating a leaf, a tree implementation that overrides the abstract visit method:
+	
+<codeblock language=java>
+<<leaf>>=
+public static <T> Tree<T> leaf(final T e) {
+	// return anonymous subclass for a leaf:
+	return new Tree<T>() {
+		@Override
+		public <R> R visit(Visitor<T, R> v) {
+			return v.leaf(e);
+		}
+	};
+}
+</codeblock>
+
+The tree also has a static factory method for creating a branch, also a tree implementation that overrides the abstract visit method:
+	
+<codeblock language=java>
+<<branch>>=
+public static <T> Tree<T> branch(final List<Tree<T>> children) {
+	// return anonymous subclass for a branch:
+	return new Tree<T>() {
+		@Override
+		public <R> R visit(Visitor<T, R> v) {
+			List<R> result = new Vector<R>();
+			for (Tree<T> tree : children) {
+				result.add(tree.visit(v));
+			}
+			return v.branch(result);
+		}
+	};
+}
+</codeblock>
+
+Now we can add operations on the tree outside of it, in a client, by implementing a visitor that will perform the operation, e.g. for output :
+		
+<codeblock language=java>
+<<op_1>>=
+public static <T> String toString(Tree<T> t) {
+	// return an anonymous implementation of a visitor:
+	return t.visit(new Tree.Visitor<T, String>() {
+		public String leaf(T e) {
+			return e.toString();
+		}
+		public String branch(List<String> children) {
+			String result = "(";
+			for (String c : children) {
+				result += c + " ";
+			}
+			return result.trim() + ")";
+		}
+	});
+}
+
+</codeblock>
+
+We can also add another visitor that will compute the sum of all nodes for a tree of numbers:
+		
+<codeblock language=java>
+<<op_2>>=
+public static <N extends Number> double sum(Tree<N> t) {
+	// return an anonymous implementation of a visitor:
+	return t.visit(new Tree.Visitor<N, Double>() {
+		public Double leaf(N e) {
+			return e.doubleValue();
+		}
+		public Double branch(List<Double> children) {
+			Double res = 0.0;
+			for (Double d : children) {
+				res += d;
+			}
+			return res;
+		}
+	});
+}
+</codeblock>
+
+In a main method, we can then construct a particular tree (here for integers) and perform the defined operations on it:
+		
+<codeblock language=java>
+<<main>>=
+public static void main(String[] args) {
+	Tree<Integer> t = Tree.branch(Arrays.asList(Tree.branch(Arrays
+			.asList(Tree.leaf(1), Tree.leaf(2))), Tree.leaf(3)));
+	System.out.println(toString(t)); // --> ((1,2),3)
+	System.out.println(sum(t)); // --> 6.0
+}
+</codeblock>
+
+We import the required Java classes:
+
+<codeblock language=java>
+<<imports>>=
+import java.util.Arrays;
+import java.util.List;
+import java.util.Vector;
+</codeblock>
+
+And finally we have the complete program:
+
+<codeblock language=java>
+<<Tree.java>>=
+<<imports>>
+abstract class Tree<E> {
+	<<visitor>>
+	<<branch>>
+	<<leaf>>
+	static class TreeClient {
+		<<op_1>>
+		<<op_2>>
+		<<main>>
+	}
+}
+</codeblock>
+
+=References=
+* Maurice Naftalin and Philip Wadler (2006), ''Java Generics and Collections'', O'Reilly.
+
+[[Category:Generic tree|Java]]
+[[Category:Programming_language:Java]]
+[[Category:Visitor pattern]]
+[[Category:Factory method pattern]]
+[[Category:Environment:Portable]]

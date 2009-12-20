@@ -1,0 +1,595 @@
+=Overview=
+
+This is an exemplary [http://en.wikipedia.org/wiki/Part-of-speech_tagging part of speech tagger] using a [http://en.wikipedia.org/wiki/Hidden_Markov_model hidden markov model] (HMM), implemented using the [http://en.wikipedia.org/wiki/Viterbi_algorithm viterbi algorithm], which is based on the [http://en.wikipedia.org/wiki/Dynamic_programming dynamic programming] strategy. The tagger is [http://en.wikipedia.org/wiki/Machine_learning trained] with an untagged minimal text, generating the state transition probability matrices of the HMM.
+
+=Implementation=
+
+The implementation consists of five classes, visualized in the UML class diagram below:
+
+[[Image:POS-tagger-class-diagram.png|UML class diagram for the POS tagger implementation]]
+
+==Tagger==
+
+Words with common category-sets form a category of their own, here 'vn' for words that can be v and n (Kupiec). This is better for small training sets, since they are distinguished from the pure members of the single classes. Consider Jelinek as an alternative. Consult Manning & Schütze (1999) for further reference. The lemmata are collected in a blank-separated string used by the HMM. We initialize the lexicon, the tagset and the untagged corpus.
+
+<codeblock language=java>
+<<init_tagger>>=
+
+private void initData() {
+    lexicon = new HashMap<String, String>();
+    lexicon.put("fly", "vn");
+    lexicon.put("layers", "vn");
+    lexicon.put("sneaks", "v");
+    lexicon.put("food", "n");
+    lexicon.put("that", "det,rp");
+    lexicon.put(".", "period");
+    StringBuffer lexBuf = new StringBuffer();
+    for (String word : lexicon.keySet()) {
+        lexBuf.append(word + " ");
+    }
+    lexiconString = lexBuf.toString();
+    tagset = "det rp vn v n period";
+    corpus = "that fly layers. that fly sneaks. that, that sneaks food" +
+    		"layers. that fly layers that food. layers.";
+}
+</codeblock>
+
+Tag the words in the given string using the HMM. Returns the input string with the POS tag appended to each word. Creates an HMM for the input, given the tagset, lexicon, matrices A and B (which are generated). Adds the POS tag for every word in the input and returns that tagged string using the most probable tag set for the input.
+
+<codeblock language=java>
+<<tag>>=
+
+public String tag(String input) {
+    initData();
+    ViterbiHMM hmm = new ViterbiHMM(tagset, lexiconString, input, lexicon,
+            corpus, true);
+    String[] in = input.split(" ");
+    String[] re = hmm.mostProbableSequence().split(" ");
+    StringBuilder buf = new StringBuilder();
+    for (int i = 0; i < in.length; i++) {
+        buf.append(in[i] + ":" + re[i] + " ");
+    }
+    return buf.toString();
+}
+</codeblock>
+
+* Sample usage, tag a given string of words:
+
+<codeblock language=java>
+<<usage>>=
+
+System.out.println(tag("layers that fly that food . that fly sneaks ."));
+</codeblock>
+
+* The tagger class, with a JUnit 4 test for the sample usage (requires Java 5):
+
+<codeblock language=java>
+<<Tagger.java>>=
+
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Test;
+
+public class Tagger {
+	String tagset;
+	String corpus;
+	Map<String, String> lexicon;
+	String lexiconString;
+	@Test
+	public void testTagger() {
+		<<usage>>
+	}
+	<<init_tagger>>
+	<<tag>>
+}
+</codeblock>
+
+==Abstract==
+
+An abstract HMM consists of an alphabet ''a'', a number of states ''n'', an observable alphabet, an observation, the state transition probabilities matrix ''A'' (transitions from observable to hidden) and the observation probabilities matrix ''B'' (transitions from hidden to hidden). The HMM computes the most probable sequence of states for a given observation. The matrices are generated, see below for details.
+
+<codeblock language=java>
+<<AbstractHMM.java>>=
+import java.util.Map;
+
+abstract class AbstractHMM {
+    protected String a;
+    protected int n;
+    protected String obsA;
+    protected String obs;
+    protected double[][] A;
+    protected double[][] B;
+    protected String mostProbableSequence;
+    public AbstractHMM(String a, String obsA, String obs,
+            Map<String, String> lexicon, String corpus) {
+        MatrixGenerator gen = new MatrixGenerator(lexicon, corpus, a);
+        this.a = a;
+        this.n = obs.length();
+        this.obsA = obsA;
+        this.obs = obs;
+        this.A = gen.createMatrixA(0.01);
+        this.B = gen.createMatrixB();
+    }
+
+    public abstract String mostProbableSequence();
+}
+</codeblock>
+
+==Viterbi==
+
+The HMM uses the Viterbi algorithm. The HMM has the following attributes: ''a'', the hidden alphabet (the possible tags), ''obsA'': the observable alphabet (the lemmata in the lexicon), ''obs'': the observed sequence (a string containing words found in the lexicon), ''A'': transitions from observable to hidden (probabilities for word to tag transitions) and ''B'': transitions from hidden to hidden (probabilities for tag to tag transitions). As part of the Viterbi algorithm this HMM has delta and psi matrices. Finding the most probable sequence consists of two basic steps.
+
+<codeblock language=java>
+<<find_most_probable>>=
+
+init();
+induct();
+</codeblock>
+
+* 1. Initialize the matrices with their initial values: fill ''delta'' with 0.0 except for the starting 1.0. Fill ''psi'' with -1:
+
+<codeblock language=java>
+<<init>>=
+
+private void init() {
+    hiddenAlphabet = a.split("\\s");
+    observableAlphabet = obsA.split("\\s");
+    observation = obs.split("\\s");
+    delta = new double[hiddenAlphabet.length][observation.length];
+    for (int i = 0; i < delta.length; i++) {
+        Arrays.fill(delta[i], 0.0);
+    }
+    delta[delta.length - 1][0] = 1.0;
+    psi = new int[hiddenAlphabet.length][observation.length - 1];
+    for (int i = 0; i < psi.length; i++) {
+        Arrays.fill(psi[i], -1);
+    }
+}
+</codeblock>
+
+* 2. Compute values for ''delta''. For each word in the input, except the starting period (1), we compute the entry for ''delta'' for every tag in the tagset (2). We lookup the word (3) and compute the values for ''delta'' and ''psi'' (4):
+
+<codeblock language=java>
+<<induct>>=
+
+private void induct() {
+    // (1)
+    for (int i = 1; i < observation.length; i++) {
+        // (2)
+        for (int j = 0; j < hiddenAlphabet.length; j++) {
+            double prevTagMax = ViterbiMatrixTools.maximimumForCol(
+                    i - 1, delta);
+            // (3)
+            int lexIndex = getIndex(observation[i], observableAlphabet);
+            // (4)
+            double prob = probForWordToTag(lexIndex + 1, j, B, A);
+            double res = prevTagMax * prob;
+            delta[j][i] = res;
+            if (res > 0.0)
+                psi[j][i - 1] = ViterbiMatrixTools.indexOfMaximimumForCol(
+                        i - 1, delta);
+        }
+
+    }
+}
+</codeblock>
+
+* Compute the probability for a transistion from a given (observable) word to a given (hidden) tag, using the indices in the matrices:
+
+<codeblock language=java>
+<<word_to_tag>>=
+
+private double probForWordToTag(int i, int j, double[][] b, double[][] a) {
+    // delta has the leading period, therefore - 1 for previous:
+    int prevIndex = ViterbiMatrixTools.indexOfMaximimumForCol(i - 1, delta);
+    // b doesn have the leading p, therefore -1 for recent:
+    if (absoluteValues)
+        return (b[i - 1][j] / ViterbiMatrixTools.sumForCol(j, B))
+                * (A[prevIndex][j] / ViterbiMatrixTools.sumForRow(
+                        prevIndex, A));
+    else {
+        return (b[i - 1][j]) * (A[prevIndex][j]);
+    }
+}
+</codeblock>
+
+* Return the result after retrieving it from the psi matrix:
+
+<codeblock language=java>
+<<result>>=
+
+private String getResult() {
+    String[] resultArray = new String[psi[0].length];
+    int lastIndexInPsi = ViterbiMatrixTools.indexOfMaximimumForCol(
+            delta[0].length - 1, delta);
+    if (lastIndexInPsi == -1) {
+        System.out.println("no tag-sequence found for input, exit.");
+        System.exit(0);
+    }
+    int lastValueInPsi = psi[lastIndexInPsi][psi[0].length - 1];
+    String lastTag = hiddenAlphabet[lastIndexInPsi];
+    resultArray[resultArray.length - 1] = lastTag;
+    // retrieve other tags:
+    for (int i = psi[0].length - 2; i >= 0; i--) {
+        resultArray[i] = hiddenAlphabet[lastValueInPsi];
+        lastValueInPsi = psi[lastValueInPsi][i];
+    }
+    StringBuffer resultString = new StringBuffer();
+    for (int i = 0; i < resultArray.length; i++) {
+        resultString.append(resultArray[i]);
+        if (i < resultArray.length - 1)
+            resultString.append(" ");
+    }
+    return resultString.toString();
+}
+</codeblock>
+
+Find the index of a string in a given array of strings. Returns the index of the string in the array. If it wasn't found, we can't go on and terminate here.
+
+<codeblock language=java>
+<<search>>=
+
+int getIndex(String string, String[] lexicon) {
+    for (int i = 0; i < lexicon.length; i++) {
+        if (string.equals(lexicon[i]))
+            return i;
+    }
+    System.out.println("Word '" + string + "' not found in lexicon, exit.");
+    System.exit(0);
+    return -1;
+}
+</codeblock>
+
+* The Viterbi HMM class:
+
+<codeblock language=java>
+<<ViterbiHMM.java>>=
+import java.util.Arrays;
+import java.util.Map;
+
+public class ViterbiHMM extends AbstractHMM {
+    private double[][] delta;
+    private int[][] psi;
+    private String[] hiddenAlphabet;
+    private String[] observableAlphabet;
+    private String[] observation;
+    private boolean absoluteValues;
+    public ViterbiHMM(String a, String obsA, String obs,
+            Map<String, String> lexicon, String corpus, boolean absoluteValues) {
+        super(a, obsA, ". " + obs, lexicon, corpus);
+        this.absoluteValues = absoluteValues;
+    }
+    public String mostProbableSequence() {
+        <<find_most_probable>>
+        System.out.println("Delta:");
+        ViterbiMatrixTools.printMatrix(delta);
+        System.out.println();
+        System.out.println("Psi:");
+        ViterbiMatrixTools.printMatrix(psi);
+        System.out.println();
+        return getResult();
+    }
+    <<init>>
+    <<induct>>
+    <<word_to_tag>>
+    <<result>>
+    <<search>>
+}
+</codeblock>
+
+==Generator==
+
+Create the matrix for word-tag-transitions (Matrix B, via Jelinek): learn transition probabilities from the corpus. First, initialize the matrix depending of the number of possible POS tags for a given word by first retrieving the possible POS tags for the given word from the lexicon.
+
+<codeblock language=java>
+<<init_matrix>>=
+
+result = new double[l.length][t.length];
+for (int j = 0; j < result.length; j++) {
+    Arrays.fill(result[j], 0.0);
+    for (int k = 0; k < result[j].length; k++) {
+        String categories = ((String) lexicon.get(l[j]));
+        if (categories.indexOf(t[k]) != -1) {
+            result[j][k] = 1.0 / categories.split("\\,").length;
+        }
+    }
+}
+</codeblock>
+
+* Now we adjust the values by computing the divider of every value ''a'' in the matrix and other value ''b'' in the same column as ''a'':
+
+<codeblock language=java>
+<<adjust_matrix>>=
+
+for (int j = 0; j < result.length; j++) {
+    for (int k = 0; k < result[j].length; k++) {
+        double a = result[j][k]
+                * (double) ((Integer) freq.get(l[j])).intValue();
+        double b = 0.0;
+        for (int index = 0; index < result.length; index++) {
+            b = b
+                    + result[index][k]
+                    * (double) ((Integer) freq.get(l[index]))
+                            .intValue();
+        }
+        result[j][k] = a / b;
+    }
+}
+</codeblock>
+
+For the matrix A, we create a matrix filled with pseudo-random values. The method takes one argument, diff: the variability for the random numbers. Adjusting this value changes how the matrix is filled. It returns a random-filled matrix, for tag-tag-transitions probabilities (Matrix A).
+
+<codeblock language=java>
+<<create_matrix_a>>=
+
+public double[][] createMatrixA(double diff) {
+    String[] t = tagset.split(" ");
+    double[][] res = new double[t.length][t.length];
+    int cols = res[0].length;
+    double average = 1.0 / (double) cols;
+    for (int i = 0; i < res.length; i++) {
+        Arrays.fill(res[i], average);
+    }
+    Random r = new Random();
+    for (int i = 0; i < res.length; i++) {
+        double var = 1.0;
+        while (var > diff)
+            var = r.nextDouble();
+        int pos = r.nextInt(res[i].length);
+        boolean plus = true;
+        for (int j = 0; j < res[i].length; j++) {
+            // if not even, skip one random position
+            if (res[i].length % 2 != 0 && j == pos)
+                continue;
+            if (plus && res[i][j] - var > 0) {
+                res[i][j] = res[i][j] + var;
+                plus = false;
+            } else if (res[i][j] - var > 0) {
+                res[i][j] = res[i][j] - var;
+                plus = true;
+            }
+        }
+    }
+    System.out.println();
+    System.out.println("Matrix A (tag-tag, pseudo-random-generated):");
+    ViterbiMatrixTools.printMatrix(res);
+    System.out.println();
+    return res;
+}
+</codeblock>
+
+* Print the keys and values of a map to the console:
+
+<codeblock language=java>
+<<print_map>>=
+
+private void printMap(Map<String, ?> map) {
+    for (Iterator iter = map.keySet().iterator(); iter.hasNext();) {
+        String element = (String) iter.next();
+        System.out.println(element + ": " + map.get(element));
+    }
+}
+</codeblock>
+
+* Count word frequencies:
+
+<codeblock language=java>
+<<count>>=
+
+private void countLexems() {
+    freq = new HashMap<String, Integer>();
+    StringTokenizer tok = new StringTokenizer(corpus, " \t\n.,", true);
+    while (tok.hasMoreTokens()) {
+        String rec = tok.nextToken();
+        if (lexicon.containsKey(rec)) {
+            if (freq.containsKey(rec)) {
+                freq.put(rec, freq.get(rec) + 1);
+            } else {
+                freq.put(rec, 1);
+            }
+        }
+    }
+}
+</codeblock>
+
+* The matrix generator class:
+
+<codeblock language=java>
+<<MatrixGenerator.java>>=
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Random;
+import java.util.StringTokenizer;
+
+public class MatrixGenerator {
+	private Map<String, String> lexicon;
+	private Map<String, Integer> freq;
+	private String corpus;
+	private double[][] result;
+	private String tagset;
+	public MatrixGenerator(Map<String, String> lexicon, String corpus, String tagset) {
+		this.corpus = corpus;
+		this.lexicon = lexicon;
+		this.tagset = tagset;
+		countLexems();
+		System.out.println("Tagset: " + tagset);
+		System.out.println();
+		System.out.println("Corpus: " + corpus);
+		System.out.println();
+		System.out.println("Frequencies:");
+		System.out.println();
+		printMap(freq);
+	}
+	public double[][] createMatrixB() {
+		String[] l = new String[lexicon.keySet().size()];
+		String[] t = tagset.split(" ");
+		int i = 0;
+		for (Iterator iter = lexicon.keySet().iterator(); iter.hasNext(); i++) {
+			String element = (String) iter.next();
+			l[i] = element;
+		}
+		<<init_matrix>>
+		<<adjust_matrix>>
+		System.out.println();
+		System.out
+		        .println("Matrix B (word-tag, lexicon and tags ordered as printed above, learned from corpus):");
+		ViterbiMatrixTools.printMatrix(result);
+		return result;
+	}
+	<<create_matrix_a>>
+	<<print_map>>
+	<<count>>
+}
+</codeblock>
+
+==Tools==
+
+As other dynamic programming algorithms, the viterbi algorithms uses a table or matrix for storing results and for computing results for subproblems. This requires various queries on the table. Methods for these queries are gathered in a viterbi matrix tools class.
+
+* Compute the sum of the values in a given column:
+
+<codeblock language=java>
+<<sum_for_col>>=
+
+static double sumForCol(int i, double[][] matrix) {
+    double sum = 0;
+    for (int j = 0; j < matrix.length; j++) {
+        sum = sum + matrix[j][i];
+    }
+    return sum;
+}
+</codeblock>
+
+* Compute the sum of the values in a given row:
+
+<codeblock language=java>
+<<sum_for_row>>=
+
+static double sumForRow(int i, double[][] matrix) {
+    double sum = 0;
+    for (int j = 0; j < matrix[i].length; j++) {
+        sum = sum + matrix[i][j];
+    }
+    return sum;
+}
+</codeblock>
+
+* Find the maximum value in a given column:
+
+<codeblock language=java>
+<<max_for_col>>=
+
+static double maximimumForCol(int i, double[][] matrix) {
+    double maxValue = 0.0;
+    for (int j = 0; j < matrix.length; j++) {
+        maxValue = Math.max(maxValue, matrix[j][i]);
+    }
+    return maxValue;
+}
+</codeblock>
+
+* Find the index of the maximum value in a given column of a matrix of doubles:
+
+<codeblock language=java>
+<<index_max_1>>=
+
+static int indexOfMaximimumForCol(int i, double[][] matrix) {
+    int maxIndex = -1;
+    double maxValue = -1.0;
+    for (int j = 0; j < matrix.length; j++) {
+        if (matrix[j][i] > maxValue) {
+            maxIndex = j;
+            maxValue = matrix[j][i];
+        }
+    }
+    return maxIndex;
+}
+</codeblock>
+
+* Find the index of the maximum value in a given column of a matrix of integers:
+
+<codeblock language=java>
+<<index_max_2>>=
+
+static int indexOfMaximimumForCol(int i, int[][] matrix) {
+    int maxIndex = -1;
+    int maxValue = -1;
+    for (int j = 0; j < matrix.length; j++) {
+        if (matrix[j][i] > maxValue) {
+            maxIndex = j;
+            maxValue = matrix[j][i];
+        }
+    }
+    return maxIndex;
+}
+</codeblock>
+
+* Print a matrix of doubles, filling up the cells with blanks for readable output:
+
+<codeblock language=java>
+<<print_1>>=
+
+static void printMatrix(double[][] matrix) {
+    for (int i = 0; i < matrix.length; i++) {
+        for (int j = 0; j < matrix[i].length; j++) {
+            String myString = NumberFormat.getInstance().format(
+                    matrix[i][j]);
+            if (myString.length() < 5) {
+                for (int k = myString.length(); k < 5; k++) {
+                    myString = myString + " ";
+                }
+            }
+            System.out.print(myString + "   ");
+        }
+        System.out.println();
+    }
+}
+</codeblock>
+
+* Print a matrix of integers:
+
+<codeblock language=java>
+<<print_2>>=
+
+static void printMatrix(int[][] matrix) {
+    for (int i = 0; i < matrix.length; i++) {
+        for (int j = 0; j < matrix[i].length; j++) {
+            if (matrix[i][j] >= 0)
+                System.out.print(" ");
+            System.out.print(matrix[i][j] + "   ");
+        }
+        System.out.println();
+    }
+}
+</codeblock>
+
+* The matrix tools class:
+
+<codeblock language=java>
+<<ViterbiMatrixTools.java>>=
+import java.text.NumberFormat;
+
+public class ViterbiMatrixTools {
+	<<sum_for_col>>
+	<<sum_for_row>>
+	<<max_for_col>>
+	<<index_max_1>>
+	<<index_max_2>>
+	<<print_1>>
+	<<print_2>>
+}
+
+</codeblock>
+
+=References=
+
+* Chris Manning and Hinrich Schütze (1999), ''Foundations of Statistical Natural Language Processing'', MIT Press. Cambridge, MA.
+
+[[Category:POS tagging|Java]]
+[[Category:Hidden Markov model|Java]]
+[[Category:Viterbi|Java]]
+[[Category:Programming_language:Java]]
+[[Category:Environment:Portable]]

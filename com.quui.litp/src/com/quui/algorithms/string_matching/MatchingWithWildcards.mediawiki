@@ -1,0 +1,106 @@
+==Overview==
+
+An implementation of string matching with [http://en.wikipedia.org/wiki/Wildcard_character wildcards], as described in Gusfield 1999:199. When used with a ''longest common extension'' computation with [http://en.wikipedia.org/wiki/Suffix_tree suffix trees], it allows for searching a pattern with ''k'' wildcards in a text ''T'' of length ''m'' in ''O(km)'' time (Gusfield 1999:199). This implementation uses a [[Longest common extension (Java)|simple computation]] of the ''longest common extension''.
+
+==Implementation==
+
+The basic idea is to align the pattern at every position of the text, computing the ''longest common extension'' and ensuring that mismatches occur on positions with wildcards. The matching method takes two arguments: The text and the pattern. The [http://en.wikipedia.org/wiki/Asterisk asterisk] (*) is used as the wildcard character. The method returns a collection of strings: the matches of the pattern in the text. The algorithm, as described in Gusfield 1999:199 (modified to fit the names of some variables renamed in the implementation), consists of four steps:
+
+* "''Step 1: Set j to 1 and h to i.''" (ib.) Let n be the length of p.
+
+<codeblock language=java>
+<<init>>=
+
+int j = 0;
+int h = i;
+int n = p.length();
+</codeblock>
+
+* "''Step 2: Compute the length L of the longest common extension starting at positions j of P and h of T''" (ib.)
+
+<codeblock language=java>
+<<compute_lce>>=
+
+int L = SimpleLongestCommonExtension.longestCommonExtension(p, j, t, h);
+</codeblock>
+
+* "''Step 3: if j + L = n + 1 then P occurs in T starting at i;  stop.''" (ib.)
+
+<codeblock language=java>
+<<collect>>=
+
+if (j + 1 + L == n + 1) {
+    result.add(t.substring(i, i + n));
+    break;
+}
+</codeblock>
+
+* "''Step 4: Check if a wildcard occurs in position j + L of P or position h + L in T. If so then set j to j + L + 1, set h to h + L + 1, and then go to step 2. Else, P does not occur in T starting at i; stop.''" (ib.)
+
+<codeblock language=java>
+<<match>>=
+
+if (((j + L) < p.length() && p.charAt(j + L) == '*')
+        || ((h + L) < t.length() && t.charAt(h + L) == '*')) {
+    j = j + L + 1;
+    h = h + L + 1;
+} else
+    break;
+</codeblock>
+
+==Usage==
+
+* A JUnit 4 unit test to demonstrate the usage:
+
+<codeblock language=java>
+<<test>>=
+
+Collection<String> results = getMatches("abentbananaend bend", "ben*");
+assertEquals(Arrays.asList("bent", "bend"), results);
+</codeblock>
+
+* The complete program:
+
+<codeblock language=java>
+<<MatchingWithWildcards.java>>=
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+
+public class MatchingWithWildcards {
+	public static Collection<String> getMatches(String t, String p) {
+		Collection<String> result = new ArrayList<String>();
+		for (int i = 0; i < t.length(); i++) {
+			<<init>>
+			while (true){
+				<<compute_lce>>
+				<<collect>>
+				<<match>>
+			}
+		}
+		return result;
+	}
+	@Test
+	public void testGetMatches() {
+		<<test>>
+	}
+}
+</codeblock>
+* The required simple implementation of ''longest common extension'' computation:
+
+<codeblock language=java>
+<<SimpleLongestCommonExtension.java>>=
+<<Longest common extension (Java)#8162#SimpleLongestCommonExtension.java>>
+</codeblock>
+
+==References==
+
+* Gusfield, Dan (1999), ''Algorithms on Strings, Sequences and Trees''. Cambridge: University Press.
+
+[[Category:Wildcards|Java]]
+[[Category:Programming_language:Java]]
+[[Category:Environment:Portable]]

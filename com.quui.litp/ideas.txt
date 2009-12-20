@@ -1,0 +1,33 @@
+[?] - Simple HMM (auf variations basierend...)
+[?] - Recursive Variations (nicht meins...)
+[?] - Quicksort (Java, while, normal, nicht meins...)
+[?] - Dynamic Programming (Java, simples Bsp. in Ruby)
+[?] - GraphViz call (Java, Ruby)
+[?] - Spider (Java, simple) und (Java, threaded)
+[?] - File system crawler
+[?] - Search engine
+[?] - Reihe: 99 Variationen des Compressors. Ich hab 4 bisher + richtiger Parser
+[?] - Reihe: Coding, XY-Style z.B. Prolog, Ruby, Java
+
+[I] - Konverter fuer Java mit Javadocs zu lp, Eclipse-Integration...
+[I] - Romanartig, spannend schreiben, bei den Datenstrukturen z.B...
+[I] - Irgendwas mal in Scala... z.B. Edit Distance, Kosinus-Ähnlichkeit
+
+[I] - Jaehrliche gedruckte Ausgaben, als Book on demand?
+[I] - Text in verschiedenen Sprachen, code immer der gleiche?
+[I] - Kommentare zum code ergaenzen, optional, wg zB. javadoc
+[I] - Should package names be generated for java code?
+[I] - Verlinkung mit WP weiter verbessern, auch auf der dt. z.B.
+
+[OK 1] - Permutations with repetition (Java)
+[OK 1] - Stack (Java)
+[OK 1] - Binary tree (Java)
+[OK 3] - Viterbi-Algorithm, HMM (Java)
+[OK 1] - Parsing mit DCG (Prolog) -- Parser generator (Prolog)
+[OK 2] - binary search (aufgabe 44)
+[OK 2] - Perzeptron
+[OK 1] - LCE
+[OK 1] - Wildcards
+[OK 1] - K-Mismatch
+[OK 2] - Quicksort (Java)
+[OK 3] - Suffix Tree, naive (Java), dazu Darstellung, Text aus Wiki

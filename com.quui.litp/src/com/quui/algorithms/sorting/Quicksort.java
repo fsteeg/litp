@@ -1,4 +1,4 @@
-package com.quui.algorithms.quicksort;
+package com.quui.algorithms.sorting;
 
 /** <<import>>= Import the JUnit 4 test annotation and the static assertEquals method. */
 import org.junit.Assert;

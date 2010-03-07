@@ -5,7 +5,7 @@ import org.junit.runners.Suite;
 
 import com.quui.algorithms.binary_search.BinarySearch;
 import com.quui.algorithms.permutations.TestPermutationsWithRepetition;
-import com.quui.algorithms.quicksort.Quicksort;
+import com.quui.algorithms.sorting.Quicksort;
 import com.quui.algorithms.string_matching.BoyerMoore;
 import com.quui.algorithms.string_matching.EditDistance;
 import com.quui.algorithms.string_matching.SimpleLongestCommonExtension;

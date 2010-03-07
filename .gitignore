@@ -1,3 +1,5 @@
+*.png
+.scala_dependencies
 .metadata/
 bin/
 logs/
